@@ -22,6 +22,12 @@ class UserAdmin(BaseUserAdmin):
             }
         ),
         (
+            _('Personal Info'),
+            {
+                'fields': ('name',)
+            }
+        ),
+        (
             _('Permissions'),
             {
                 'fields': ('is_active', 'is_staff', 'is_superuser')
@@ -45,8 +51,8 @@ class UserAdmin(BaseUserAdmin):
                 'name',
                 'is_active',
                 'is_staff',
-                'is_superuser'
-            )
+                'is_superuser',
+            ),
         }),
     )
 

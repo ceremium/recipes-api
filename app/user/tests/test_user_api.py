@@ -29,25 +29,25 @@ class PublicUserApiTests(TestCase):
     def test_create_user_success(self):
         """Test creating a user is successful"""
         payload = {
-            "email": "test@example.com",
-            "password": "password123",
-            "name": "Test Name"
+            'email': 'test@example.com',
+            'password': 'password123',
+            'name': 'Test Name'
         }
 
         res = self.client.post(CREATE_USER_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
 
-        user = get_user_model().objects.get(email='test@example.com')
+        user = get_user_model().objects.get(email=payload['email'])
         self.assertTrue(user.check_password(payload['password']))
         self.assertNotIn('password', res.data)
 
     def test_create_user_email_exists_error(self):
         """Test error returned when user email already exists"""
         payload = {
-            "email": "test@example.com",
-            "password": "password123",
-            "name": "Test Name"
+            'email': 'test@example.com',
+            'password': 'password123',
+            'name': 'Test Name'
         }
         create_user(**payload)
 
@@ -58,9 +58,9 @@ class PublicUserApiTests(TestCase):
     def test_create_user_password_too_short_error(self):
         """Test error returned when user email already exists"""
         payload = {
-            "email": "test@example.com",
-            "password": "pw",
-            "name": "Test Name"
+            'email': 'test@example.com',
+            'password': 'pw',
+            'name': 'Test Name'
         }
 
         res = self.client.post(CREATE_USER_URL, payload)
@@ -80,61 +80,42 @@ class PublicUserApiTests(TestCase):
         }
         create_user(**user_details)
 
-        res = self.client.post(TOKEN_URL, user_details)
+        payload = {
+            'email': user_details['email'],
+            'password': user_details['password'],
+        }
+
+        res = self.client.post(TOKEN_URL, payload)
 
         self.assertIn('token', res.data)
         self.assertEqual(res.status_code, status.HTTP_200_OK)
 
     def test_create_token_bad_credentials(self):
         """Test returns an error for an invalid password"""
-        user_details = {
-            'name': 'Test name',
-            'email': 'test@example.com',
-            'password': 'password123'
-        }
-        create_user(**user_details)
+        create_user(email='test@example.com', password='goodpass')
+        payload = {'email': 'test@example.com', 'password': 'badpass'}
+        res = self.client.post(TOKEN_URL, payload)
+        self.assertNotIn('token', res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
-        res = self.client.post(TOKEN_URL, {
-            'email': 'test@example.com',
-            'password': 'badpassword'
-        })
+    def test_create_token_email_not_found(self):
+        """Test error returned if user not found for given email."""
+        payload = {'email': 'test@example.com', 'password': 'pass123'}
+        res = self.client.post(TOKEN_URL, payload)
+
         self.assertNotIn('token', res.data)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_create_token_blank_password(self):
-        """Test returns an error for a blank password"""
-        user_details = {
-            'name': 'Test name',
-            'email': 'test@example.com',
-            'password': 'password123'
-        }
-        create_user(**user_details)
+        """Test posting a blank password returns an error."""
+        payload = {'email': 'test@example.com', 'password': ''}
+        res = self.client.post(TOKEN_URL, payload)
 
-        res = self.client.post(TOKEN_URL, {
-            'email': 'test@example.com',
-            'password': ''
-        })
-        self.assertNotIn('token', res.data)
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_create_token_blank_password(self):
-        """Test returns an error for a blank email"""
-        user_details = {
-            'name': 'Test name',
-            'email': 'test@example.com',
-            'password': 'password123'
-        }
-        create_user(**user_details)
-
-        res = self.client.post(TOKEN_URL, {
-            'email': '',
-            'password': 'password123'
-        })
         self.assertNotIn('token', res.data)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_retrieve_user_unauthorized(self):
-        """Test authentication is required to retrieve current user"""
+        """Test authentication is required for users."""
         res = self.client.get(ME_URL)
 
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -144,25 +125,23 @@ class PrivateUserApiTests(TestCase):
     """Test API requests that require authentication"""
 
     def setUp(self):
-        self.user = {
-            'name': 'Test name',
-            'email': 'test@example.com',
-            'password': 'password123'
-        }
+        self.user = self.user = create_user(
+            email='test@example.com',
+            password='testpass123',
+            name='Test Name',
+        )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
     def test_retrieve_profile_success(self):
-        """Test retrieving the profile for an authenticated user"""
+        """Test retrieving profile for logged in user."""
         res = self.client.get(ME_URL)
 
-        target = {
-            'name': self.user['name'],
-            'email': self.user['email'],
-        }
-
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(res.data, target)
+        self.assertEqual(res.data, {
+            'name': self.user.name,
+            'email': self.user.email,
+        })
 
     def test_post_me_not_allowed(self):
         """Test posting to profile endpoint not allowed"""
@@ -170,7 +149,7 @@ class PrivateUserApiTests(TestCase):
 
         self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
-    def test_update_user_profile_success(self):
+    def test_update_user_profile(self):
         """Test updating the user profile for the authenticated user."""
         payload = {'name': 'Updated name', 'password': 'newpassword123'}
 
