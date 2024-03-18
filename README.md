@@ -1,4 +1,4 @@
-# recipes-api
+# Screening Tool API
 
 ## Environment
 
